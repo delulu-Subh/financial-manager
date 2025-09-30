@@ -1,2 +1,2 @@
 # financial-manager
-[View the artifact](https://claude.ai/public/artifacts/3f455f4b-5033-4c86-9760-48ca6b154390)
+[View the artifact](https://claude.ai/public/artifacts/a7ba4b86-e42d-47e5-baaf-bbc946988bb9)
