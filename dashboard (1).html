@@ -1,0 +1,820 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PowerBI Dashboard</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #F3F4F6;
+            padding: 24px;
+            margin: 0;
+            min-height: 100vh;
+            touch-action: manipulation; /* Improve touch responsiveness */
+        }
+        .flex { display: flex; }
+        .items-center { align-items: center; }
+        .justify-between { justify-content: space-between; }
+        .mb-8 { margin-bottom: 32px; }
+        .space-x-3 > * + * { margin-left: 12px; }
+        .rounded-lg { border-radius: 8px; }
+        .bg-gray-100 { background-color: #F3F4F6; }
+        .p-1 { padding: 4px; }
+        .px-4 { padding-left: 16px; padding-right: 16px; }
+        .py-2 { padding-top: 8px; padding-bottom: 8px; }
+        .text-sm { font-size: 14px; }
+        .font-medium { font-weight: 500; }
+        .transition-all { transition: all 0.2s; }
+        .rounded-md { border-radius: 6px; }
+        .bg-white { background-color: #FFFFFF; }
+        .text-gray-900 { color: #111827; }
+        .shadow-sm { box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05); }
+        .text-gray-600 { color: #4B5563; }
+        .hover\:text-gray-900:hover { color: #111827; }
+        .hover\:bg-white-50:hover { background-color: rgba(255, 255, 255, 0.5); }
+        .relative { position: relative; }
+        .pl-10 { padding-left: 40px; }
+        .pr-4 { padding-right: 16px; }
+        .border { border: 1px solid #D1D5DB; }
+        .w-64 { width: 256px; }
+        .absolute { position: absolute; }
+        .left-3 { left: 12px; }
+        .top-3 { top: 12px; }
+        .w-4 { width: 16px; }
+        .h-4 { height: 16px; }
+        .text-gray-400 { color: #9CA3AF; }
+        .text-gray-700 { color: #374151; }
+        .hover\:bg-gray-50:hover { background-color: #F9FAFB; }
+        .grid { display: grid; }
+        .grid-cols-4 { grid-template-columns: repeat(4, 1fr); }
+        .gap-6 { gap: 24px; }
+        .p-6 { padding: 24px; }
+        .mb-3 { margin-bottom: 12px; }
+        .w-8 { width: 32px; }
+        .h-8 { height: 32px; }
+        .rounded { border-radius: 4px; }
+        .mr-3 { margin-right: 12px; }
+        .flex-col { flex-direction: column; }
+        .text-3xl { font-size: 30px; }
+        .font-bold { font-weight: 700; }
+        .grid-cols-3 { grid-template-columns: repeat(3, 1fr); }
+        .h-64 { height: 256px; }
+        .justify-center { justify-content: center; }
+        .text-gray-500 { color: #6B7280; }
+        .mb-4 { margin-bottom: 16px; }
+        .mt-4 { margin-top: 16px; }
+        .w-3 { width: 12px; }
+        .h-3 { height: 12px; }
+        .bg-purple-500 { background-color: #8B5CF6; }
+        .rounded-full { border-radius: 50%; }
+        .mr-2 { margin-right: 8px; }
+        .bg-gray-300 { background-color: #D1D5DB; }
+        .grid-cols-2 { grid-template-columns: repeat(2, 1fr); }
+        .gap-2 { gap: 8px; }
+        .text-xs { font-size: 12px; }
+        .w-2 { width: 8px; }
+        .h-2 { height: 8px; }
+        .bg-blue-500 { background-color: #3B82F6; }
+        .bg-pink-500 { background-color: #EC4899; }
+        .bg-gray-800 { background-color: #1F2937; }
+        .text-white { color: #FFFFFF; }
+        .space-y-2 > * + * { margin-top: 8px; }
+        .w-full { width: 100%; }
+        .h-12 { height: 48px; }
+        .px-4 { padding-left: 16px; padding-right: 16px; }
+        .chart-container { position: relative; width: 100%; height: 100%; }
+        .bar { background-color: #8B5CF6; border-radius: 4px 4px 0 0; margin-right: 4px; transition: height 0.3s ease; cursor: pointer; }
+        .bar:hover { opacity: 0.8; }
+        .bar-stack-primary { background-color: #1F2937; }
+        .bar-stack-secondary { background-color: #8B5CF6; border-radius: 4px 4px 0 0; }
+        .area-chart { position: absolute; bottom: 0; width: 100%; }
+        .funnel-bar { margin: 0 auto; transition: width 0.3s ease; cursor: pointer; }
+        .funnel-bar:hover { opacity: 0.8; }
+        .pie-chart { position: relative; width: 200px; height: 200px; }
+        .pie-slice { position: absolute; width: 100%; height: 100%; cursor: pointer; }
+        .pie-slice:hover { opacity: 0.8; }
+        .pie-hole { position: absolute; background: white; border-radius: 50%; }
+        .pie-label { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; }
+        .tooltip { 
+            position: absolute; 
+            background: #1F2937; 
+            color: white; 
+            padding: 8px; 
+            border-radius: 4px; 
+            font-size: 12px; 
+            pointer-events: none; 
+            z-index: 10; 
+            transition: opacity 0.2s ease; 
+        }
+        .popup {
+            position: fixed;
+            background: #FFFFFF;
+            border: 1px solid #D1D5DB;
+            padding: clamp(8px, 2vw, 12px);
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            z-index: 20;
+            max-width: min(80vw, 200px);
+            opacity: 0;
+            transform: scale(0.9) translateY(20px);
+            transition: opacity 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+            backdrop-filter: blur(0px);
+            -webkit-backdrop-filter: blur(0px);
+            transition: backdrop-filter 0.3s ease, -webkit-backdrop-filter 0.3s ease;
+            will-change: opacity, transform, backdrop-filter;
+        }
+        .popup.show {
+            opacity: 1;
+            transform: scale(1) translateY(0);
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
+        }
+        .popup-content {
+            opacity: 0;
+            transform: translateY(8px);
+            transition: opacity 0.25s cubic-bezier(0.25, 0.8, 0.25, 1) 0.05s, transform 0.25s cubic-bezier(0.25, 0.8, 0.25, 1) 0.05s;
+            font-size: clamp(12px, 3vw, 14px);
+        }
+        .popup.show .popup-content {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        .popup-close {
+            cursor: pointer;
+            color: #6B7280;
+            font-size: clamp(12px, 2.5vw, 13px);
+            text-align: right;
+            transition: color 0.2s ease, transform 0.2s cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
+        .popup-close:hover, .popup-close:active {
+            color: #111827;
+            transform: scale(1.1);
+        }
+        @media (max-width: 768px) {
+            .popup {
+                transition: opacity 0.25s cubic-bezier(0.25, 0.8, 0.25, 1), transform 0.25s cubic-bezier(0.25, 0.8, 0.25, 1);
+            }
+            .popup-content {
+                transition: opacity 0.2s cubic-bezier(0.25, 0.8, 0.25, 1) 0.05s, transform 0.2s cubic-bezier(0.25, 0.8, 0.25, 1) 0.05s;
+            }
+            .grid-cols-4 { grid-template-columns: repeat(2, 1fr); }
+            .grid-cols-3 { grid-template-columns: 1fr; }
+            .grid-cols-2 { grid-template-columns: 1fr; }
+            .w-64 { width: 100%; }
+            .h-64 { height: 200px; }
+            .pie-chart { width: 150px; height: 150px; }
+        }
+        @media (max-width: 480px) {
+            body { padding: 16px; }
+            .text-3xl { font-size: 24px; }
+            .p-6 { padding: 16px; }
+            .mb-8 { margin-bottom: 24px; }
+        }
+    </style>
+</head>
+<body>
+    <div id="dashboard" class="min-h-screen bg-gray-50 p-6">
+        <!-- Header -->
+        <div class="flex items-center justify-between mb-8">
+            <div id="time-range-selector" class="flex rounded-lg bg-gray-100 p-1"></div>
+            <div class="flex items-center space-x-3">
+                <div class="relative">
+                    <input type="text" placeholder="Search..." class="pl-10 pr-4 py-2 bg-white border border-gray-300 rounded text-sm w-64">
+                    <svg class="w-4 h-4 text-gray-400 absolute left-3 top-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                    </svg>
+                </div>
+                <button class="px-3 py-2 bg-white border border-gray-300 rounded text-gray-700 hover:bg-gray-50">Filter</button>
+            </div>
+        </div>
+
+        <!-- KPI Cards -->
+        <div id="kpi-cards" class="grid grid-cols-4 gap-6 mb-8"></div>
+
+        <!-- Charts Row 1 -->
+        <div class="grid grid-cols-3 gap-6 mb-8">
+            <div class="bg-white p-6 rounded-lg shadow-sm">
+                <h3 class="text-sm text-gray-500 font-medium mb-4">Inquiry Breakdown</h3>
+                <div class="h-64 flex items-center justify-center">
+                    <div class="pie-chart" id="inquiry-breakdown"></div>
+                </div>
+                <div class="flex justify-between text-sm mt-4">
+                    <div class="flex items-center">
+                        <div class="w-3 h-3 bg-purple-500 rounded-full mr-2"></div>
+                        <span>Booked 36.2%</span>
+                    </div>
+                    <div class="flex items-center">
+                        <div class="w-3 h-3 bg-gray-300 rounded-full mr-2"></div>
+                        <span>Flopped 63.8%</span>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-white p-6 rounded-lg shadow-sm">
+                <h3 class="text-sm text-gray-500 font-medium mb-4">Inquiries per Month</h3>
+                <div class="h-64 chart-container" id="inquiries-per-month"></div>
+            </div>
+            <div class="bg-white p-6 rounded-lg shadow-sm">
+                <h3 class="text-sm text-gray-500 font-medium mb-4">Inquiry Source Breakdown</h3>
+                <div class="h-64 chart-container" id="inquiry-source-breakdown"></div>
+            </div>
+        </div>
+
+        <!-- Charts Row 2 -->
+        <div class="grid grid-cols-2 gap-6 mb-8">
+            <div class="bg-white p-6 rounded-lg shadow-sm">
+                <h3 class="text-sm text-gray-500 font-medium mb-4">Income per Quarter</h3>
+                <div class="h-64 flex items-center justify-center">
+                    <div class="pie-chart" id="income-per-quarter"></div>
+                </div>
+                <div class="grid grid-cols-2 gap-2 text-xs mt-4">
+                    <div><span class="inline-block w-2 h-2 bg-blue-500 rounded-full mr-1"></span>Q1 13.1%</div>
+                    <div><span class="inline-block w-2 h-2 bg-purple-500 rounded-full mr-1"></span>Q2 28.6%</div>
+                    <div><span class="inline-block w-2 h-2 bg-pink-500 rounded-full mr-1"></span>Q3 28%</div>
+                    <div><span class="inline-block w-2 h-2 bg-gray-800 rounded-full mr-1"></span>Q4 30.3%</div>
+                </div>
+            </div>
+            <div class="bg-white p-6 rounded-lg shadow-sm">
+                <h3 class="text-sm text-gray-500 font-medium mb-4">Income Source per Month</h3>
+                <div class="h-64 chart-container" id="income-source-per-month"></div>
+            </div>
+        </div>
+
+        <!-- Advanced Analytics Row -->
+        <div class="grid grid-cols-2 gap-6 mb-8">
+            <div class="bg-white p-6 rounded-lg shadow-sm">
+                <h3 class="text-sm text-gray-500 font-medium mb-4">Income Growth Trend</h3>
+                <div class="h-64 chart-container" id="income-growth-trend"></div>
+            </div>
+            <div class="bg-white p-6 rounded-lg shadow-sm">
+                <h3 class="text-sm text-gray-500 font-medium mb-4">Sales Funnel Pipeline</h3>
+                <div class="h-64 flex items-center justify-center">
+                    <div class="w-full space-y-2" id="sales-funnel-pipeline"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Data generation functions
+        function generateDataForPeriod(period) {
+            const now = new Date();
+            const data = [];
+            const configs = {
+                '7d': {
+                    points: 7,
+                    baseValue: 5,
+                    variation: 8,
+                    labels: (i) => new Date(now.getTime() - i * 24 * 60 * 60 * 1000).toLocaleDateString('en-US', { weekday: 'short' })
+                },
+                '30d': {
+                    points: 30,
+                    baseValue: 8,
+                    variation: 12,
+                    labels: (i) => {
+                        const date = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
+                        return `${date.getMonth() + 1}/${date.getDate()}`;
+                    }
+                },
+                '90d': {
+                    points: 13,
+                    baseValue: 25,
+                    variation: 20,
+                    labels: (i) => `W${13 - i}`
+                },
+                '1y': {
+                    points: 12,
+                    baseValue: 15,
+                    variation: 15,
+                    labels: (i) => {
+                        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                        return months[11 - i];
+                    }
+                }
+            };
+            const config = configs[period];
+            for (let i = config.points - 1; i >= 0; i--) {
+                data.push({
+                    month: config.labels(i),
+                    value: Math.max(1, Math.round(config.baseValue + (Math.random() - 0.5) * config.variation))
+                });
+            }
+            return data;
+        }
+
+        function generateIncomeDataForPeriod(period) {
+            const now = new Date();
+            const data = [];
+            const configs = {
+                '7d': {
+                    points: 7,
+                    baseIncome: 500,
+                    variation: 300,
+                    labels: (i) => new Date(now.getTime() - i * 24 * 60 * 60 * 1000).toLocaleDateString('en-US', { weekday: 'short' })
+                },
+                '30d': {
+                    points: 30,
+                    baseIncome: 800,
+                    variation: 500,
+                    labels: (i) => {
+                        const date = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
+                        return `${date.getMonth() + 1}/${date.getDate()}`;
+                    }
+                },
+                '90d': {
+                    points: 13,
+                    baseIncome: 5000,
+                    variation: 3000,
+                    labels: (i) => `W${13 - i}`
+                },
+                '1y': {
+                    points: 12,
+                    baseIncome: 25000,
+                    variation: 15000,
+                    labels: (i) => {
+                        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                        return months[11 - i];
+                    }
+                }
+            };
+            const config = configs[period];
+            for (let i = config.points - 1; i >= 0; i--) {
+                const income = Math.max(100, Math.round(config.baseIncome + (Math.random() - 0.5) * config.variation));
+                data.push({
+                    month: config.labels(i),
+                    value: income,
+                    primary: Math.round(income * 0.7),
+                    secondary: Math.round(income * 0.3)
+                });
+            }
+            return data;
+        }
+
+        function generateKPIsForPeriod(period) {
+            const multipliers = {
+                '7d': { income: 3500, clients: 2, projects: 1 },
+                '30d': { income: 15000, clients: 8, projects: 5 },
+                '90d': { income: 45000, clients: 25, projects: 18 },
+                '1y': { income: 250000, clients: 120, projects: 85 }
+            };
+            const mult = multipliers[period];
+            const income = mult.income + Math.round((Math.random() - 0.5) * mult.income * 0.3);
+            const clients = mult.clients + Math.round((Math.random() - 0.5) * mult.clients * 0.4);
+            const projects = mult.projects + Math.round((Math.random() - 0.5) * mult.projects * 0.3);
+            const successRate = 25 + Math.round(Math.random() * 25);
+            return {
+                totalIncome: Math.max(1000, income),
+                successRate: Math.max(10, Math.min(90, successRate)),
+                newClients: Math.max(1, clients),
+                completedProjects: Math.max(1, projects)
+            };
+        }
+
+        function generateFunnelData(period) {
+            const base = period === '7d' ? 50 : period === '30d' ? 200 : period === '90d' ? 600 : 2400;
+            const inquiries = base + Math.round(Math.random() * base * 0.3);
+            const booked = Math.round(inquiries * 0.36);
+            const completed = Math.round(booked * 0.85);
+            const revenue = completed * (period === '7d' ? 500 : period === '30d' ? 2000 : period === '90d' ? 5000 : 25000);
+            return [
+                { stage: 'Inquiries', value: inquiries, percentage: 100 },
+                { stage: 'Booked', value: booked, percentage: Math.round((booked / inquiries) * 100) },
+                { stage: 'Completed', value: completed, percentage: Math.round((completed / inquiries) * 100) },
+                { stage: 'Revenue', value: revenue, percentage: Math.round((completed / inquiries) * 100) }
+            ];
+        }
+
+        const sourceData = [
+            { name: 'Web', value: 60 },
+            { name: 'Email', value: 30 },
+            { name: 'Instagram', value: 22 },
+            { name: 'TikTok', value: 8 },
+            { name: 'Pinterest', value: 5 }
+        ];
+
+        // State management
+        let timeRange = '30d';
+        let monthlyData = [];
+        let incomeMonthly = [];
+        let incomeSourceMonthly = [];
+        let kpis = {};
+        let funnelData = [];
+
+        function updateData() {
+            // Close any open popups before updating data
+            const popup = document.querySelector('.popup');
+            if (popup) {
+                popup.classList.remove('show');
+                setTimeout(() => popup.remove(), 300); // Match animation duration
+            }
+            monthlyData = generateDataForPeriod(timeRange);
+            incomeMonthly = generateIncomeDataForPeriod(timeRange);
+            incomeSourceMonthly = generateIncomeDataForPeriod(timeRange);
+            kpis = generateKPIsForPeriod(timeRange);
+            funnelData = generateFunnelData(timeRange);
+            renderDashboard();
+        }
+
+        // Tooltip and Popup Management
+        function showTooltip(text, x, y, container) {
+            let tooltip = container.querySelector('.tooltip');
+            if (!tooltip) {
+                tooltip = document.createElement('div');
+                tooltip.className = 'tooltip';
+                container.appendChild(tooltip);
+            }
+            tooltip.textContent = text;
+            tooltip.style.left = `${x}px`;
+            tooltip.style.top = `${y}px`;
+            tooltip.style.display = 'block';
+        }
+
+        function hideTooltip(container) {
+            const tooltip = container.querySelector('.tooltip');
+            if (tooltip) tooltip.style.display = 'none';
+        }
+
+        function showPopup(text, x, y) {
+            let popup = document.querySelector('.popup');
+            if (!popup) {
+                popup = document.createElement('div');
+                popup.className = 'popup';
+                document.body.appendChild(popup);
+            }
+            popup.innerHTML = `
+                <div class="popup-close">Close</div>
+                <div class="popup-content">${text}</div>
+            `;
+            // Adjust position to stay within viewport
+            const popupWidth = Math.min(window.innerWidth * 0.8, 200);
+            const popupHeight = 100; // Approximate height
+            let adjustedX = Math.max(10, Math.min(x, window.innerWidth - popupWidth - 10));
+            let adjustedY = Math.max(10, Math.min(y, window.innerHeight - popupHeight - 10));
+            popup.style.left = `${adjustedX}px`;
+            popup.style.top = `${adjustedY}px`;
+            popup.style.display = 'block';
+            // Trigger animation
+            setTimeout(() => popup.classList.add('show'), 10);
+            // Handle close for both click and touch
+            const closeButton = popup.querySelector('.popup-close');
+            closeButton.onclick = closeButton.ontouchstart = () => {
+                popup.classList.remove('show');
+                setTimeout(() => popup.remove(), 300); // Match animation duration
+            };
+        }
+
+        // Time Range Selector
+        function renderTimeRangeSelector() {
+            const ranges = [
+                { value: '7d', label: '7 Days' },
+                { value: '30d', label: '30 Days' },
+                { value: '90d', label: '90 Days' },
+                { value: '1y', label: '1 Year' }
+            ];
+            const container = document.getElementById('time-range-selector');
+            container.innerHTML = ranges.map(range => `
+                <button class="px-4 py-2 text-sm font-medium transition-all rounded-md ${timeRange === range.value ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900 hover:bg-white-50'}" onclick="setTimeRange('${range.value}')">${range.label}</button>
+            `).join('');
+        }
+
+        function setTimeRange(value) {
+            timeRange = value;
+            updateData();
+        }
+
+        // KPI Cards
+        function renderKPICards() {
+            const container = document.getElementById('kpi-cards');
+            container.innerHTML = `
+                <div class="bg-white p-6 rounded-lg shadow-sm">
+                    <div class="flex items-center mb-3">
+                        <div class="w-8 h-8 bg-gray-100 rounded mr-3 flex items-center justify-center">💰</div>
+                        <span class="text-sm text-gray-500">Total Income</span>
+                    </div>
+                    <div class="text-3xl font-bold text-gray-900">$${kpis.totalIncome?.toLocaleString()}.00</div>
+                </div>
+                <div class="bg-white p-6 rounded-lg shadow-sm">
+                    <div class="flex items-center mb-3">
+                        <div class="w-8 h-8 bg-gray-100 rounded mr-3 flex items-center justify-center">📊</div>
+                        <span class="text-sm text-gray-500">Inquiry Success Rate</span>
+                    </div>
+                    <div class="text-3xl font-bold text-gray-900">${kpis.successRate}%</div>
+                </div>
+                <div class="bg-white p-6 rounded-lg shadow-sm">
+                    <div class="flex items-center mb-3">
+                        <div class="w-8 h-8 bg-gray-100 rounded mr-3 flex items-center justify-center">👥</div>
+                        <span class="text-sm text-gray-500">Number of New Clients</span>
+                    </div>
+                    <div class="text-3xl font-bold text-gray-900">${kpis.newClients}</div>
+                </div>
+                <div class="bg-white p-6 rounded-lg shadow-sm">
+                    <div class="flex items-center mb-3">
+                        <div class="w-8 h-8 bg-gray-100 rounded mr-3 flex items-center justify-center">✅</div>
+                        <span class="text-sm text-gray-500">Number of Completed Projects</span>
+                    </div>
+                    <div class="text-3xl font-bold text-gray-900">${kpis.completedProjects}</div>
+                </div>
+            `;
+        }
+
+        // Charts
+        function renderInquiryBreakdown() {
+            const container = document.getElementById('inquiry-breakdown');
+            const data = [
+                { name: 'Booked', value: 36.2, fill: '#8B5CF6' },
+                { name: 'Flopped', value: 63.8, fill: '#E5E7EB' }
+            ];
+            const total = 360;
+            let startAngle = 0;
+            container.innerHTML = `
+                <svg class="pie-slice" viewBox="0 0 200 200">
+                    ${data.map((item, index) => {
+                        const angle = (item.value / 100) * 360;
+                        const x1 = 100 + 90 * Math.cos((startAngle * Math.PI) / 180);
+                        const y1 = 100 + 90 * Math.sin((startAngle * Math.PI) / 180);
+                        const x2 = 100 + 90 * Math.cos(((startAngle + angle) * Math.PI) / 180);
+                        const y2 = 100 + 90 * Math.sin(((startAngle + angle) * Math.PI) / 180);
+                        const largeArc = angle > 180 ? 1 : 0;
+                        const path = `M100,100 L${x1},${y1} A90,90 0 ${largeArc},1 ${x2},${y2} Z`;
+                        startAngle += angle;
+                        return `<path d="${path}" fill="${item.fill}" data-index="${index}"/>`;
+                    }).join('')}
+                    <circle cx="100" cy="100" r="60" fill="white" class="pie-hole"/>
+                </svg>
+                <div class="pie-label">
+                    <div class="text-sm text-gray-600">Booked</div>
+                    <div class="text-lg font-semibold text-gray-900">36.2%</div>
+                </div>
+            `;
+            container.querySelectorAll('path').forEach((path, index) => {
+                path.addEventListener('mouseover', (e) => {
+                    showTooltip(`${data[index].name}: ${data[index].value}%`, e.clientX - container.getBoundingClientRect().left + 10, e.clientY - container.getBoundingClientRect().top - 20, container);
+                });
+                path.addEventListener('mouseout', () => hideTooltip(container));
+                path.addEventListener('click', (e) => {
+                    showPopup(`${data[index].name}: ${data[index].value}%`, e.clientX, e.clientY);
+                });
+                path.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    const touch = e.touches[0];
+                    showPopup(`${data[index].name}: ${data[index].value}%`, touch.clientX, touch.clientY);
+                });
+            });
+        }
+
+        function renderInquiriesPerMonth() {
+            const container = document.getElementById('inquiries-per-month');
+            const maxValue = Math.max(...monthlyData.map(d => d.value), 1);
+            const barWidth = (container.offsetWidth - 20) / monthlyData.length - 4;
+            container.innerHTML = `
+                <div style="display: flex; align-items: flex-end; height: 200px; padding: 10px;">
+                    ${monthlyData.map((item, index) => `
+                        <div style="flex: 0 0 ${barWidth}px; height: ${(item.value / maxValue) * 180}px;" class="bar" data-index="${index}"></div>
+                    `).join('')}
+                </div>
+                <div style="display: flex; justify-content: space-between; padding: 0 10px;">
+                    ${monthlyData.map(item => `<span style="font-size: 12px; color: #6B7280;">${item.month}</span>`).join('')}
+                </div>
+            `;
+            container.querySelectorAll('.bar').forEach((bar, index) => {
+                bar.addEventListener('mouseover', (e) => {
+                    showTooltip(`${monthlyData[index].month}: ${monthlyData[index].value}`, e.clientX - container.getBoundingClientRect().left + 10, e.clientY - container.getBoundingClientRect().top - 20, container);
+                });
+                bar.addEventListener('mouseout', () => hideTooltip(container));
+                bar.addEventListener('click', (e) => {
+                    showPopup(`${monthlyData[index].month}: ${monthlyData[index].value} inquiries`, e.clientX, e.clientY);
+                });
+                bar.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    const touch = e.touches[0];
+                    showPopup(`${monthlyData[index].month}: ${monthlyData[index].value} inquiries`, touch.clientX, touch.clientY);
+                });
+            });
+        }
+
+        function renderInquirySourceBreakdown() {
+            const container = document.getElementById('inquiry-source-breakdown');
+            const maxValue = Math.max(...sourceData.map(d => d.value), 1);
+            const barWidth = (container.offsetWidth - 20) / sourceData.length - 4;
+            container.innerHTML = `
+                <div style="display: flex; align-items: flex-end; height: 200px; padding: 10px;">
+                    ${sourceData.map((item, index) => `
+                        <div style="flex: 0 0 ${barWidth}px; height: ${(item.value / maxValue) * 180}px;" class="bar" data-index="${index}"></div>
+                    `).join('')}
+                </div>
+                <div style="display: flex; justify-content: space-between; padding: 0 10px;">
+                    ${sourceData.map(item => `<span style="font-size: 12px; color: #6B7280;">${item.name}</span>`).join('')}
+                </div>
+            `;
+            container.querySelectorAll('.bar').forEach((bar, index) => {
+                bar.addEventListener('mouseover', (e) => {
+                    showTooltip(`${sourceData[index].name}: ${sourceData[index].value}`, e.clientX - container.getBoundingClientRect().left + 10, e.clientY - container.getBoundingClientRect().top - 20, container);
+                });
+                bar.addEventListener('mouseout', () => hideTooltip(container));
+                bar.addEventListener('click', (e) => {
+                    showPopup(`${sourceData[index].name}: ${sourceData[index].value} inquiries`, e.clientX, e.clientY);
+                });
+                bar.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    const touch = e.touches[0];
+                    showPopup(`${sourceData[index].name}: ${sourceData[index].value} inquiries`, touch.clientX, touch.clientY);
+                });
+            });
+        }
+
+        function renderIncomePerQuarter() {
+            const container = document.getElementById('income-per-quarter');
+            const data = [
+                { name: 'Q1', value: 13.1, fill: '#3B82F6' },
+                { name: 'Q2', value: 28.6, fill: '#8B5CF6' },
+                { name: 'Q3', value: 28, fill: '#EC4899' },
+                { name: 'Q4', value: 30.3, fill: '#1F2937' }
+            ];
+            const total = 360;
+            let startAngle = 0;
+            container.innerHTML = `
+                <svg class="pie-slice" viewBox="0 0 200 200">
+                    ${data.map((item, index) => {
+                        const angle = (item.value / 100) * 360;
+                        const x1 = 100 + 90 * Math.cos((startAngle * Math.PI) / 180);
+                        const y1 = 100 + 90 * Math.sin((startAngle * Math.PI) / 180);
+                        const x2 = 100 + 90 * Math.cos(((startAngle + angle) * Math.PI) / 180);
+                        const y2 = 100 + 90 * Math.sin(((startAngle + angle) * Math.PI) / 180);
+                        const largeArc = angle > 180 ? 1 : 0;
+                        const path = `M100,100 L${x1},${y1} A90,90 0 ${largeArc},1 ${x2},${y2} Z`;
+                        startAngle += angle;
+                        return `<path d="${path}" fill="${item.fill}" data-index="${index}"/>`;
+                    }).join('')}
+                    <circle cx="100" cy="100" r="50" fill="white" class="pie-hole"/>
+                </svg>
+            `;
+            container.querySelectorAll('path').forEach((path, index) => {
+                path.addEventListener('mouseover', (e) => {
+                    showTooltip(`${data[index].name}: ${data[index].value}%`, e.clientX - container.getBoundingClientRect().left + 10, e.clientY - container.getBoundingClientRect().top - 20, container);
+                });
+                path.addEventListener('mouseout', () => hideTooltip(container));
+                path.addEventListener('click', (e) => {
+                    showPopup(`${data[index].name}: ${data[index].value}%`, e.clientX, e.clientY);
+                });
+                path.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    const touch = e.touches[0];
+                    showPopup(`${data[index].name}: ${data[index].value}%`, touch.clientX, touch.clientY);
+                });
+            });
+        }
+
+        function renderIncomeSourcePerMonth() {
+            const container = document.getElementById('income-source-per-month');
+            const maxValue = Math.max(...incomeSourceMonthly.map(d => d.primary + d.secondary), 1);
+            const barWidth = (container.offsetWidth - 20) / incomeSourceMonthly.length - 4;
+            container.innerHTML = `
+                <div style="display: flex; align-items: flex-end; height: 200px; padding: 10px;">
+                    ${incomeSourceMonthly.map((item, index) => `
+                        <div style="flex: 0 0 ${barWidth}px;">
+                            <div style="height: ${(item.primary / maxValue) * 180}px;" class="bar bar-stack-primary" data-index="${index}" data-type="primary"></div>
+                            <div style="height: ${(item.secondary / maxValue) * 180}px;" class="bar bar-stack-secondary" data-index="${index}" data-type="secondary"></div>
+                        </div>
+                    `).join('')}
+                </div>
+                <div style="display: flex; justify-content: space-between; padding: 0 10px;">
+                    ${incomeSourceMonthly.map(item => `<span style="font-size: 12px; color: #6B7280;">${item.month}</span>`).join('')}
+                </div>
+            `;
+            container.querySelectorAll('.bar').forEach((bar) => {
+                const index = bar.getAttribute('data-index');
+                const type = bar.getAttribute('data-type');
+                bar.addEventListener('mouseover', (e) => {
+                    showTooltip(`${incomeSourceMonthly[index].month} ${type}: $${incomeSourceMonthly[index][type]}`, e.clientX - container.getBoundingClientRect().left + 10, e.clientY - container.getBoundingClientRect().top - 20, container);
+                });
+                bar.addEventListener('mouseout', () => hideTooltip(container));
+                bar.addEventListener('click', (e) => {
+                    showPopup(`${incomeSourceMonthly[index].month} ${type}: $${incomeSourceMonthly[index][type]}`, e.clientX, e.clientY);
+                });
+                bar.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    const touch = e.touches[0];
+                    showPopup(`${incomeSourceMonthly[index].month} ${type}: $${incomeSourceMonthly[index][type]}`, touch.clientX, touch.clientY);
+                });
+            });
+        }
+
+        function renderIncomeGrowthTrend() {
+            const container = document.getElementById('income-growth-trend');
+            const maxValue = Math.max(...incomeMonthly.map(d => d.value), 1);
+            const points = incomeMonthly.map((item, index) => {
+                const x = (index / (incomeMonthly.length - 1)) * (container.offsetWidth - 20);
+                const y = 200 - (item.value / maxValue) * 180;
+                return { x, y, value: item.value, month: item.month };
+            });
+            container.innerHTML = `
+                <svg style="width: 100%; height: 200px;">
+                    <polyline points="${points.map(p => `${p.x},${p.y}`).join(' ')}" style="fill: none; stroke: #8B5CF6; stroke-width: 2; transition: all 0.3s ease;" />
+                    <polygon points="0,200 ${points.map(p => `${p.x},${p.y}`).join(' ')} ${container.offsetWidth - 20},200" style="fill: rgba(139, 92, 246, 0.3); transition: all 0.3s ease;" />
+                    <g style="font-size: 12px; fill: #6B7280;">
+                        ${points.map((p, index) => `
+                            <text x="${p.x}" y="220">${p.month}</text>
+                            <circle cx="${p.x}" cy="${p.y}" r="4" fill="#8B5CF6" data-index="${index}" style="cursor: pointer;" />
+                        `).join('')}
+                    </g>
+                </svg>
+            `;
+            container.querySelectorAll('circle').forEach((circle, index) => {
+                circle.addEventListener('mouseover', (e) => {
+                    showTooltip(`${points[index].month}: $${points[index].value.toLocaleString()}`, e.clientX - container.getBoundingClientRect().left + 10, e.clientY - container.getBoundingClientRect().top - 20, container);
+                });
+                circle.addEventListener('mouseout', () => hideTooltip(container));
+                circle.addEventListener('click', (e) => {
+                    showPopup(`${points[index].month}: $${points[index].value.toLocaleString()}`, e.clientX, e.clientY);
+                });
+                circle.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    const touch = e.touches[0];
+                    showPopup(`${points[index].month}: $${points[index].value.toLocaleString()}`, touch.clientX, touch.clientY);
+                });
+            });
+        }
+
+        function renderSalesFunnelPipeline() {
+            const container = document.getElementById('sales-funnel-pipeline');
+            container.innerHTML = funnelData.map((stage, index) => `
+                <div class="relative">
+                    <div class="h-12 flex items-center justify-between px-4 text-white font-medium text-sm transition-all funnel-bar" style="background-color: rgba(139, 92, 246, ${1 - index * 0.2}); width: ${100 - index * 15}%;" data-index="${index}">
+                        <span>${stage.stage}</span>
+                        <span>${stage.value.toLocaleString()} (${stage.percentage}%)</span>
+                    </div>
+                </div>
+            `).join('');
+            container.querySelectorAll('.funnel-bar').forEach((bar, index) => {
+                bar.addEventListener('mouseover', (e) => {
+                    showTooltip(`${funnelData[index].stage}: ${funnelData[index].value.toLocaleString()} (${funnelData[index].percentage}%)`, e.clientX - container.getBoundingClientRect().left + 10, e.clientY - container.getBoundingClientRect().top - 20, container);
+                });
+                bar.addEventListener('mouseout', () => hideTooltip(container));
+                bar.addEventListener('click', (e) => {
+                    showPopup(`${funnelData[index].stage}: ${funnelData[index].value.toLocaleString()} (${funnelData[index].percentage}%)`, e.clientX, e.clientY);
+                });
+                bar.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    const touch = e.touches[0];
+                    showPopup(`${funnelData[index].stage}: ${funnelData[index].value.toLocaleString()} (${funnelData[index].percentage}%)`, touch.clientX, touch.clientY);
+                });
+            });
+        }
+
+        // Render all components
+        function renderDashboard() {
+            renderTimeRangeSelector();
+            renderKPICards();
+            renderInquiryBreakdown();
+            renderInquiriesPerMonth();
+            renderInquirySourceBreakdown();
+            renderIncomePerQuarter();
+            renderIncomeSourcePerMonth();
+            renderIncomeGrowthTrend();
+            renderSalesFunnelPipeline();
+        }
+
+        // Initial render
+        updateData();
+    </script>
+</body>
+</html>
